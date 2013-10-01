@@ -53,7 +53,7 @@ at the same time.
 ===============================================================================
 */
 
-static kbutton_t kb[NUM_BUTTONS];
+kbutton_t kb[NUM_BUTTONS];
 
 void IN_MLookDown( void ) {
 	kb[KB_MLOOK].active = qtrue;
@@ -760,7 +760,9 @@ void CL_FinishMove( usercmd_t *cmd ) {
 	}
 }
 
-
+#ifdef __ANDROID__
+void CL_AndroidMove( usercmd_t *cmd );
+#endif
 /*
 =================
 CL_CreateCmd
@@ -788,6 +790,10 @@ usercmd_t CL_CreateCmd( void ) {
 
 	// get basic movement from joystick
 	CL_JoystickMove( &cmd );
+
+#ifdef __ANDROID__
+	CL_AndroidMove ( &cmd );
+#endif
 
 	// check to make sure the angles haven't wrapped
 	if ( cl.viewangles[PITCH] - oldAngles[PITCH] > 90 ) {

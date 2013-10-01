@@ -210,6 +210,10 @@ int vmMain( int command, int arg0, int arg1, int arg2, int arg3, int arg4, int a
 		_UI_MouseEvent( arg0, arg1 );
 		return 0;
 
+	case UI_MOUSE_EVENT_ABS:
+		_UI_MouseEventAbs( arg0, arg1 );
+		return 0;
+
 	case UI_REFRESH:
 		_UI_Refresh( arg0 );
 		return 0;
@@ -6743,6 +6747,36 @@ void _UI_MouseEvent( int dx, int dy ) {
 	}
 
 }
+
+/*
+=================
+UI_MouseEvent
+=================
+*/
+void _UI_MouseEventAbs( int x, int y ) {
+	// update mouse screen position
+	uiInfo.uiDC.cursorx = x;
+	if ( uiInfo.uiDC.cursorx < 0 ) {
+		uiInfo.uiDC.cursorx = 0;
+	} else if ( uiInfo.uiDC.cursorx > SCREEN_WIDTH ) {
+		uiInfo.uiDC.cursorx = SCREEN_WIDTH;
+	}
+
+	uiInfo.uiDC.cursory = y;
+	if ( uiInfo.uiDC.cursory < 0 ) {
+		uiInfo.uiDC.cursory = 0;
+	} else if ( uiInfo.uiDC.cursory > SCREEN_HEIGHT ) {
+		uiInfo.uiDC.cursory = SCREEN_HEIGHT;
+	}
+
+	if ( Menu_Count() > 0 ) {
+		//menuDef_t *menu = Menu_GetFocused();
+		//Menu_HandleMouseMove(menu, uiInfo.uiDC.cursorx, uiInfo.uiDC.cursory);
+		Display_MouseMove( NULL, uiInfo.uiDC.cursorx, uiInfo.uiDC.cursory );
+	}
+
+}
+
 
 void UI_LoadNonIngame() {
 	const char *menuSet = UI_Cvar_VariableString( "ui_menuFiles" );

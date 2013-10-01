@@ -29,6 +29,16 @@ If you have questions concerning this license or the applicable additional terms
 #ifndef __Q_SHARED_H
 #define __Q_SHARED_H
 
+#ifdef __ANDROID__
+
+#include <android/log.h>
+
+#define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO,"JNI", __VA_ARGS__))
+#define LOGW(...) ((void)__android_log_print(ANDROID_LOG_WARN, "JNI", __VA_ARGS__))
+#define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR,"JNI", __VA_ARGS__))
+
+#endif
+
 // q_shared.h -- included first by ALL program modules.
 // A user mod should never modify this file
 
@@ -427,6 +437,7 @@ extern vec3_t bytedirs[NUMVERTEXNORMALS];
 
 #define BIGCHAR_WIDTH       16
 #define BIGCHAR_HEIGHT      16
+
 
 #define GIANTCHAR_WIDTH     32
 #define GIANTCHAR_HEIGHT    48

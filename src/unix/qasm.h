@@ -27,7 +27,7 @@ If you have questions concerning this license or the applicable additional terms
 */
 
 #ifndef __ASM_I386__
-#define __ASM_I386__
+//#define __ASM_I386__
 
 #ifdef ELF
 #define C( label ) label

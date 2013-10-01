@@ -540,6 +540,7 @@ void Info_Print( const char *s ) {
 Com_StringContains
 ============
 */
+
 char *Com_StringContains( char *str1, char *str2, int casesensitive ) {
 	int len, i, j;
 
@@ -563,11 +564,13 @@ char *Com_StringContains( char *str1, char *str2, int casesensitive ) {
 	return NULL;
 }
 
+
 /*
 ============
 Com_Filter
 ============
 */
+
 int Com_Filter( char *filter, char *name, int casesensitive ) {
 	char buf[MAX_TOKEN_CHARS];
 	char *ptr;
@@ -655,6 +658,7 @@ int Com_Filter( char *filter, char *name, int casesensitive ) {
 	}
 	return qtrue;
 }
+
 
 /*
 ============
