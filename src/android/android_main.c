@@ -693,7 +693,11 @@ void *Sys_LoadDll( const char *name,
 
 #ifdef __ANDROID__
 	char path[500];
+#ifdef WOLF_SP_DEMO
+	snprintf( path, sizeof( path ), "/data/data/com.beloko.rtcw/lib/lib%sarm_d.so", name );
+#else
 	snprintf( path, sizeof( path ), "/data/data/com.beloko.rtcw/lib/lib%sarm.so", name );
+#endif
 	libHandle = dlopen (path, Q_RTLD );
 
 #else

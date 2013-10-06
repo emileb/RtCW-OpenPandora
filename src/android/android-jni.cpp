@@ -43,13 +43,10 @@ int android_screen_height;
 
 #define KEY_SHOW_WEAPONS 0x1000
 #define KEY_SHOOT        0x1001
-#define KEY_JUMP         0x1002
-#define KEY_NEXT_WEAPONS 0x1003
-#define KEY_PREV_WEAPONS 0x1004
-#define KEY_CROUCH       0x1005
+
 #define KEY_SHOW_INV     0x1006
 #define KEY_QUICK_CMD    0x1007
-#define KEY_USE          0x1008
+
 #define KEY_SHOW_KEYB    0x1009
 
 float gameControlsAlpha = 0.5;
@@ -59,8 +56,12 @@ bool invertLook = false;
 bool precisionShoot = false;
 bool showSticks = true;
 bool hideTouchControls = true;
+bool enableWeaponWheel = true;
 
 bool shooting = false;
+
+//set when holding down reload
+bool sniperMode = false;
 
 static int controlsCreated = 0;
 touchcontrols::TouchControlsContainer controlsContainer;
@@ -68,6 +69,8 @@ touchcontrols::TouchControlsContainer controlsContainer;
 touchcontrols::TouchControls *tcMenuMain=0;
 touchcontrols::TouchControls *tcGameMain=0;
 touchcontrols::TouchControls *tcGameWeapons=0;
+touchcontrols::TouchControls *tcInventory=0;
+touchcontrols::TouchControls *tcWeaponWheel=0;
 
 //So can hide and show these buttons
 touchcontrols::Button *nextWeapon=0;
@@ -144,6 +147,19 @@ void toggleKeyboard()
 	env_->CallStaticVoidMethod(helloWorldClass, mainMethod);
 }
 
+void showKeyboard(int val)
+{
+	jclass helloWorldClass;
+	jmethodID mainMethod;
+	helloWorldClass = env_->FindClass("com/beloko/idtech/ShowKeyboard");
+	mainMethod = env_->GetStaticMethodID(helloWorldClass, "showKeyboard", "(I)V");
+	env_->CallStaticVoidMethod(helloWorldClass, mainMethod,val);
+}
+
+
+extern unsigned int Sys_Milliseconds(void);
+
+static unsigned int reload_time_down;
 void gameButton(int state,int code)
 {
 	if (code == KEY_SHOOT)
@@ -151,31 +167,46 @@ void gameButton(int state,int code)
 		shooting = state;
 		PortableAction(state,PORT_ACT_ATTACK);
 	}
-	else if  (code == KEY_USE)
+	else if (code == PORT_ACT_RELOAD)
 	{
-		PortableAction(state,PORT_ACT_USE);
+		//If holding down the reload button, do not reload
+		if (state) //key down
+		{
+			reload_time_down = Sys_Milliseconds();
+		}
+		else //up
+		{
+			//if less than 0.5 sec, reload
+			if (( Sys_Milliseconds() - reload_time_down) < 500)
+			{
+				PortableAction(1, PORT_ACT_RELOAD);
+				PortableAction(0, PORT_ACT_RELOAD);
+			}
+		}
+
+		sniperMode = state; //Use reload button for precision aim also
 	}
 	else if (code == KEY_SHOW_WEAPONS)
 	{
 		if (state == 1)
 			if (!tcGameWeapons->enabled)
+			{
+				tcInventory->animateOut(5);
 				tcGameWeapons->animateIn(5);
+			}
 	}
-	else if  (code == KEY_NEXT_WEAPONS)
+	else if (code == KEY_SHOW_INV)
 	{
-		PortableAction(state,PORT_ACT_NEXT_WEP);
-	}
-	else if  (code == KEY_PREV_WEAPONS)
-	{
-		PortableAction(state,PORT_ACT_PREV_WEP);
-	}
-	else if  (code == KEY_JUMP)
-	{
-		PortableAction(state,PORT_ACT_JUMP);
-	}
-	else if  (code == KEY_CROUCH)
-	{
-		PortableAction(state,PORT_ACT_DOWN);
+		if (state == 1)
+		{
+			if (!tcInventory->enabled)
+			{
+				tcGameWeapons->animateOut(5);
+				tcInventory->animateIn(5);
+			}
+			else
+				tcInventory->animateOut(5);
+		}
 	}
 	else if  (code == KEY_QUICK_CMD){
 		//if (state == 1)
@@ -190,11 +221,27 @@ void gameButton(int state,int code)
 	}
 }
 
-void automapButton(int state,int code)
-{
-	PortableAction(state,code);
-}
 
+//Weapon wheel callbacks
+void weaponWheelSelected(int enabled)
+{
+	if (enabled)
+		tcWeaponWheel->fade(0,5); //fade in
+	else
+		tcWeaponWheel->fade(1,5);
+}
+void weaponWheel(int segment)
+{
+	LOGI("weaponWheel %d",segment);
+	int code;
+	if (segment == 9)
+		code = '0';
+	else
+		code = '1' + segment;
+
+	PortableKeyEvent(1,code,0);
+	PortableKeyEvent(0, code,0);
+}
 
 void menuButton(int state,int code)
 {
@@ -205,6 +252,11 @@ void menuButton(int state,int code)
 		return;
 	}
 	PortableKeyEvent(state, code, 0);
+}
+
+void inventoryButton(int state,int code)
+{
+	PortableAction(state,code);
 }
 
 int left_double_action;
@@ -251,17 +303,45 @@ void left_stick(float joy_x, float joy_y,float mouse_x, float mouse_y)
 }
 void right_stick(float joy_x, float joy_y,float mouse_x, float mouse_y)
 {
-	//LOGTOUCH(" mouse x = %f",mouse_x);
+	LOGI(" mouse x = %f",mouse_x);
 	int invert = invertLook?-1:1;
 
-	float scale = (shooting && precisionShoot)?0.3:1;
+	float scale;
 
-	PortableLookPitch(LOOK_MODE_MOUSE,-mouse_y  * pitch_sens * invert * scale);
-
-	if (turnMouseMode)
-		PortableLookYaw(LOOK_MODE_MOUSE,mouse_x*2*yaw_sens * scale);
+	if (sniperMode)
+		scale = 0.1;
 	else
-		PortableLookYaw(LOOK_MODE_JOYSTICK,joy_x*6*yaw_sens * scale);
+		scale = (shooting && precisionShoot)?0.3:1;
+
+	if (1)
+	{
+		PortableLookPitch(LOOK_MODE_MOUSE,-mouse_y  * pitch_sens * invert * scale);
+
+		if (turnMouseMode)
+			PortableLookYaw(LOOK_MODE_MOUSE,mouse_x*2*yaw_sens * scale);
+		else
+			PortableLookYaw(LOOK_MODE_JOYSTICK,joy_x*6*yaw_sens * scale);
+	}
+	else
+	{
+		float y = mouse_y * mouse_y;
+		y *= 50;
+		if (mouse_y < 0)
+			y *= -1;
+
+		PortableLookPitch(LOOK_MODE_MOUSE,-y  * pitch_sens * invert * scale);
+
+		float x = mouse_x * mouse_x;
+		x *= 100;
+		if (mouse_x < 0)
+			x *= -1;
+
+		if (turnMouseMode)
+			PortableLookYaw(LOOK_MODE_MOUSE,x*2*yaw_sens * scale);
+		else
+			PortableLookYaw(LOOK_MODE_JOYSTICK,joy_x*6*yaw_sens * scale);
+
+	}
 }
 
 //Weapon select callbacks
@@ -313,6 +393,8 @@ void initControls(int width, int height,const char * graphics_path,const char *s
 		tcMenuMain = new touchcontrols::TouchControls("menu",true,false);
 		tcGameMain = new touchcontrols::TouchControls("game",false,true);
 		tcGameWeapons = new touchcontrols::TouchControls("weapons",false,false);
+		tcInventory  = new touchcontrols::TouchControls("inventory",false,false);
+		tcWeaponWheel = new touchcontrols::TouchControls("weapon_wheel",false,false);
 
 		tcGameMain->signal_settingsButton.connect(  sigc::ptr_fun(&gameSettingsButton) );
 
@@ -323,8 +405,8 @@ void initControls(int width, int height,const char * graphics_path,const char *s
 		//tcMenuMain->addControl(new touchcontrols::Button("right_arrow",touchcontrols::RectF(2,7,4,9),"arrow_right",K_RIGHTARROW));
 		//tcMenuMain->addControl(new touchcontrols::Button("enter",touchcontrols::RectF(0,13,3,16),"enter",K_ENTER));
 		//tcMenuMain->addControl(new touchcontrols::Button("mouse",touchcontrols::RectF(23,13,26,16),"mouse",K_MOUSE1));
-		tcMenuMain->addControl(new touchcontrols::Button("esc",touchcontrols::RectF(0,0,3,3),"esc",K_ESCAPE));
-		tcMenuMain->addControl(new touchcontrols::Button("keyboard",touchcontrols::RectF(23,0,26,3),"keyboard",KEY_SHOW_KEYB));
+		//tcMenuMain->addControl(new touchcontrols::Button("esc",touchcontrols::RectF(0,0,3,3),"esc",K_ESCAPE));
+		//tcMenuMain->addControl(new touchcontrols::Button("keyboard",touchcontrols::RectF(23,0,26,3),"keyboard",KEY_SHOW_KEYB));
 		//tcMenuMain->addControl(new touchcontrols::Button("tab",touchcontrols::RectF(0,0,2,2),"tab",K_TAB));
 		tcMenuMain->signal_button.connect(  sigc::ptr_fun(&menuButton) );
 
@@ -339,22 +421,27 @@ void initControls(int width, int height,const char * graphics_path,const char *s
 
 		//Game
 		tcGameMain->setAlpha(gameControlsAlpha);
-		tcGameMain->addControl(new touchcontrols::Button("jump",touchcontrols::RectF(23,5,26,8),"jump",KEY_JUMP));
-		tcGameMain->addControl(new touchcontrols::Button("crouch",touchcontrols::RectF(24,14,26,16),"crouch",KEY_CROUCH));
+		tcGameMain->addControl(new touchcontrols::Button("jump",touchcontrols::RectF(24,4,26,6),"jump",PORT_ACT_JUMP));
+		tcGameMain->addControl(new touchcontrols::Button("crouch",touchcontrols::RectF(24,14,26,16),"crouch",PORT_ACT_DOWN));
 		tcGameMain->addControl(new touchcontrols::Button("attack",touchcontrols::RectF(20,7,23,10),"fire2",KEY_SHOOT));
-		tcGameMain->addControl(new touchcontrols::Button("use",touchcontrols::RectF(23,5,26,8),"use",KEY_USE));
-		tcGameMain->addControl(new touchcontrols::Button("binocular",touchcontrols::RectF(23,5,26,8),"use",PORT_ACT_ZOOM_IN));
+		tcGameMain->addControl(new touchcontrols::Button("use",touchcontrols::RectF(23,6,26,9),"use",PORT_ACT_USE));
+		tcGameMain->addControl(new touchcontrols::Button("binocular",touchcontrols::RectF(21,5,23,7),"binocular",PORT_ACT_ZOOM_IN));
 
-		//tcGameMain->addControl(new touchcontrols::Button("quick_save",touchcontrols::RectF(24,0,26,2),"save",K_F6));
-		//tcGameMain->addControl(new touchcontrols::Button("quick_load",touchcontrols::RectF(20,0,22,2),"load",K_F9));
-		//tcGameMain->addControl(new touchcontrols::Button("help_comp",touchcontrols::RectF(9,0,11,2),"f1",K_F1));
-		tcGameMain->addControl(new touchcontrols::Button("show_weapons",touchcontrols::RectF(12,14,14,16),"show_weapons",KEY_SHOW_WEAPONS));
-		tcGameMain->addControl(new touchcontrols::Button("use_inventory",touchcontrols::RectF(24,3,26,5),"inv",KEY_USE));
-		tcGameMain->addControl( new touchcontrols::Button("quick_cmd",touchcontrols::RectF(24,0,26,2),"prompt",KEY_QUICK_CMD));
+		tcGameMain->addControl(new touchcontrols::Button("notebook",touchcontrols::RectF(14,0,16,2),"notebook",PORT_ACT_HELPCOMP));
+		tcGameMain->addControl(new touchcontrols::Button("use_inventory",touchcontrols::RectF(16,0,18,2),"inv",KEY_SHOW_INV));
+		tcGameMain->addControl(new touchcontrols::Button("quick_save",touchcontrols::RectF(24,0,26,2),"save",PORT_ACT_QUICKSAVE));
+		tcGameMain->addControl(new touchcontrols::Button("quick_load",touchcontrols::RectF(20,0,22,2),"load",PORT_ACT_QUICKLOAD));
+		tcGameMain->addControl( new touchcontrols::Button("prompt",touchcontrols::RectF(9,0,11,2),"prompt",KEY_QUICK_CMD));
 
-		nextWeapon = new touchcontrols::Button("next_weapon",touchcontrols::RectF(0,3,3,5),"next_weap",KEY_NEXT_WEAPONS);
+
+		tcGameMain->addControl(new touchcontrols::Button("reload",touchcontrols::RectF(0,5,3,7),"reload_sniper",PORT_ACT_RELOAD));
+		tcGameMain->addControl(new touchcontrols::Button("alt_fire",touchcontrols::RectF(13,14,15,16),"alt_fire",PORT_ACT_ALT_FIRE));
+
+		tcGameMain->addControl(new touchcontrols::Button("show_weapons",touchcontrols::RectF(11,14,13,16),"show_weapons",KEY_SHOW_WEAPONS));
+
+		nextWeapon = new touchcontrols::Button("next_weapon",touchcontrols::RectF(0,3,3,5),"next_weap",PORT_ACT_NEXT_WEP);
 		tcGameMain->addControl(nextWeapon);
-		prevWeapon = new touchcontrols::Button("prev_weapon",touchcontrols::RectF(0,6,3,8),"prev_weap",KEY_PREV_WEAPONS);
+		prevWeapon = new touchcontrols::Button("prev_weapon",touchcontrols::RectF(0,7,3,9),"prev_weap",PORT_ACT_PREV_WEP);
 		tcGameMain->addControl(prevWeapon);
 
 		touchJoyLeft = new touchcontrols::TouchJoy("stick",touchcontrols::RectF(0,7,8,16),"strafe_arrow");
@@ -362,7 +449,7 @@ void initControls(int width, int height,const char * graphics_path,const char *s
 		touchJoyLeft->signal_move.connect(sigc::ptr_fun(&left_stick) );
 		touchJoyLeft->signal_double_tap.connect(sigc::ptr_fun(&left_double_tap) );
 
-		touchJoyRight = new touchcontrols::TouchJoy("touch",touchcontrols::RectF(17,7,26,16),"look_arrow");
+		touchJoyRight = new touchcontrols::TouchJoy("touch",touchcontrols::RectF(17,4,26,16),"look_arrow");
 		tcGameMain->addControl(touchJoyRight);
 		touchJoyRight->signal_move.connect(sigc::ptr_fun(&right_stick) );
 		touchJoyRight->signal_double_tap.connect(sigc::ptr_fun(&right_double_tap) );
@@ -381,14 +468,30 @@ void initControls(int width, int height,const char * graphics_path,const char *s
 		tcGameWeapons->addControl(new touchcontrols::Button("weapon8",touchcontrols::RectF(19,14,21,16),"8",'8'));
 		tcGameWeapons->addControl(new touchcontrols::Button("weapon9",touchcontrols::RectF(21,14,23,16),"9",'9'));
 		tcGameWeapons->addControl(new touchcontrols::Button("weapon0",touchcontrols::RectF(23,14,25,16),"0",'0'));
-
-
 		tcGameWeapons->signal_button.connect(  sigc::ptr_fun(&selectWeaponButton) );
 		tcGameWeapons->setAlpha(0.8);
+
+		//Weapon wheel
+		touchcontrols::WheelSelect *wheel = new touchcontrols::WheelSelect("weapon_wheel",touchcontrols::RectF(7,2,19,14),"weapon_wheel",10);
+		wheel->signal_selected.connect(sigc::ptr_fun(&weaponWheel) );
+		wheel->signal_enabled.connect(sigc::ptr_fun(&weaponWheelSelected));
+		tcWeaponWheel->addControl(wheel);
+		tcWeaponWheel->setAlpha(0.5);
+
+		//Inventory
+		tcInventory->addControl(new touchcontrols::Button("invuse",touchcontrols::RectF(3,14,5,16),"enter",PORT_ACT_INVUSE));
+		tcInventory->addControl(new touchcontrols::Button("invprev",touchcontrols::RectF(6,14,8,16),"arrow_left",PORT_ACT_INVPREV));
+		tcInventory->addControl(new touchcontrols::Button("invnext",touchcontrols::RectF(8,14,10,16),"arrow_right",PORT_ACT_INVNEXT));
+
+		tcInventory->signal_button.connect(  sigc::ptr_fun(&inventoryButton) );
+		tcInventory->setAlpha(0.5);
+
 
 		controlsContainer.addControlGroup(tcGameMain);
 		controlsContainer.addControlGroup(tcGameWeapons);
 		controlsContainer.addControlGroup(tcMenuMain);
+		controlsContainer.addControlGroup(tcInventory);
+		controlsContainer.addControlGroup(tcWeaponWheel);
 		controlsCreated = 1;
 
 		tcGameMain->setXMLFile(settings_file);
@@ -411,12 +514,15 @@ void frameControls()
 		if (!inMenuNew)
 		{
 			tcGameMain->setEnabled(true);
+			if (enableWeaponWheel)
+				tcWeaponWheel->setEnabled(true);
 			tcMenuMain->setEnabled(false);
 		}
 		else
 		{
 			tcGameMain->setEnabled(false);
 			tcGameWeapons->setEnabled(false);
+			tcWeaponWheel->setEnabled(false);
 			tcMenuMain->setEnabled(true);
 		}
 	}
@@ -440,6 +546,11 @@ void setTouchSettings(float alpha,float strafe,float fwd,float pitch,float yaw,i
 	invertLook      = other & 0x4?true:false;
 	precisionShoot  = other & 0x8?true:false;
 	showSticks      = other & 0x1000?true:false;
+	enableWeaponWheel  = other & 0x2000?true:false;
+
+	if (tcWeaponWheel)
+		tcWeaponWheel->setEnabled(enableWeaponWheel);
+
 
 	hideTouchControls = other & 0x80000000?true:false;
 
@@ -580,30 +691,28 @@ JAVA_FUNC(touchEvent) (JNIEnv *env, jobject obj,
 
 
 void EXPORT_ME
-JAVA_FUNC(doAction) (JNIEnv *env, jobject obj,
-		jint state, jint action)
-		{
+JAVA_FUNC(doAction) (JNIEnv *env, jobject obj,	jint state, jint action)
+{
 	//gamepadButtonPressed();
 	if (hideTouchControls)
-		if (tcGameMain->isEnabled())
-			tcGameMain->animateOut(30);
+		if (tcGameMain)
+			if (tcGameMain->isEnabled())
+				tcGameMain->animateOut(30);
 	LOGI("doAction %d %d",state,action);
 	PortableAction(state,action);
-		}
+}
 
 void EXPORT_ME
-JAVA_FUNC(analogFwd) (JNIEnv *env, jobject obj,
-		jfloat v)
-		{
+JAVA_FUNC(analogFwd) (JNIEnv *env, jobject obj,	jfloat v)
+{
 	PortableMoveFwd(v);
-		}
+}
 
 void EXPORT_ME
-JAVA_FUNC(analogSide) (JNIEnv *env, jobject obj,
-		jfloat v)
-		{
+JAVA_FUNC(analogSide) (JNIEnv *env, jobject obj,jfloat v)
+{
 	PortableMoveSide(v);
-		}
+}
 
 void EXPORT_ME
 JAVA_FUNC(analogPitch) (JNIEnv *env, jobject obj,

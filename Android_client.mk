@@ -5,7 +5,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 
-LOCAL_MODULE    := rtcw_client
+LOCAL_MODULE    := rtcw_client$(DEMO_DLL)
 
 
 LOCAL_CFLAGS = $(RTCW_BASE_CFLAGS)  -DBOTLIB
@@ -202,7 +202,7 @@ LOCAL_SRC_FILES =  $(UNIX_FILES) $(RENDERER_FILES) $(SPLINES_FILES) $(BOTLIB_FIL
 
 LOCAL_LDLIBS := -lGLESv1_CM -lEGL -ldl -llog -lOpenSLES -lz -lm 
 LOCAL_STATIC_LIBRARIES :=  libjpeg libpng
-LOCAL_SHARED_LIBRARIES :=  touchcontrols openal
+LOCAL_SHARED_LIBRARIES :=  touchcontrols 
 
 include $(BUILD_SHARED_LIBRARY)
 

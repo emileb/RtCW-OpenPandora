@@ -1,12 +1,13 @@
 
 
 RTCW_BASE_CFLAGS = \
- -mfpu=neon -fsigned-char \
+-fsigned-char \
  -march=armv7-a -mfloat-abi=softfp \
  -DNDEBUG  -DNDEBUG -Ofast -fomit-frame-pointer -ffast-math -fno-strict-aliasing -fstrength-reduce -ftree-vectorize -fsingle-precision-constant \
  -pipe -DPANDORA -DHAVE_GLES -DARM  -DC_ONLY \
--DNEON  -DAUTOAIM
+  -DAUTOAIM
 
+#-DNEON  -mfpu=neon 
 
 RTCW_BASE_LDFLAGS = \
 -Wl,--fix-cortex-a8 -llog
@@ -14,6 +15,14 @@ RTCW_BASE_LDFLAGS = \
 include $(TOP_DIR)/rtcw/Android_game.mk
 include $(TOP_DIR)/rtcw/Android_ui.mk
 include $(TOP_DIR)/rtcw/Android_cgame.mk
-#include $(TOP_DIR)/rtcw/Android_so.mk
+include $(TOP_DIR)/rtcw/Android_client.mk
 
+
+RTCW_BASE_CFLAGS += -DWOLF_SP_DEMO
+
+DEMO_DLL = _d
+
+include $(TOP_DIR)/rtcw/Android_game.mk
+include $(TOP_DIR)/rtcw/Android_ui.mk
+include $(TOP_DIR)/rtcw/Android_cgame.mk
 include $(TOP_DIR)/rtcw/Android_client.mk

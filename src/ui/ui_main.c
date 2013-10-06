@@ -181,6 +181,7 @@ void _UI_Init( qboolean );
 void _UI_Shutdown( void );
 void _UI_KeyEvent( int key, qboolean down );
 void _UI_MouseEvent( int dx, int dy );
+void _UI_MouseEventAbs( int dx, int dy );
 void _UI_Refresh( int realtime );
 qboolean _UI_IsFullscreen( void );
 #if defined( __MACOS__ )
@@ -6473,6 +6474,9 @@ static void UI_RunCinematicFrame( int handle ) {
 	trap_CIN_RunCinematic( handle );
 }
 
+static void UI_ShowSoftKeyboard( int val ) {
+	trap_CIN_ShowSoftKeyboard( val );
+}
 
 
 /*
@@ -6620,6 +6624,7 @@ void _UI_Init( qboolean inGameLoad ) {
 	uiInfo.uiDC.stopCinematic = &UI_StopCinematic;
 	uiInfo.uiDC.drawCinematic = &UI_DrawCinematic;
 	uiInfo.uiDC.runCinematicFrame = &UI_RunCinematicFrame;
+	uiInfo.uiDC.showSoftKeyboard = &UI_ShowSoftKeyboard;
 
 	Init_Display( &uiInfo.uiDC );
 

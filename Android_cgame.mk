@@ -5,7 +5,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 
-LOCAL_MODULE    := cgamearm
+LOCAL_MODULE    := cgamearm$(DEMO_DLL)
 
 LOCAL_CFLAGS = $(RTCW_BASE_CFLAGS)
 

@@ -50,6 +50,9 @@ If you have questions concerning this license or the applicable additional terms
 // for native audio
 #include <SLES/OpenSLES.h>
 #include <SLES/OpenSLES_Android.h>
+#include <pthread.h>
+
+pthread_mutex_t dma_mutex;
 
 // engine interfaces
 static SLObjectItf engineObject = NULL;
@@ -100,7 +103,8 @@ static unsigned char play_buffer[OPENSL_BUFF_LEN];
 
 void bqPlayerCallback(SLAndroidSimpleBufferQueueItf bq, void *context)
 {
-	//Com_Printf("bqPlayerCallback");
+	//LOGI("bqPlayerCallback");
+	pthread_mutex_lock(&dma_mutex);
 
 	int pos = (dmapos * (dma.samplebits/8));
 	if (pos >= dmasize)
@@ -146,6 +150,7 @@ void bqPlayerCallback(SLAndroidSimpleBufferQueueItf bq, void *context)
 	result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, play_buffer,FrameCount * factor);
 	myassert(SL_RESULT_SUCCESS == result,"Enqueue failed");
 
+	 pthread_mutex_unlock(&dma_mutex);
 }
 
 qboolean SNDDMA_Init( void ) {
@@ -163,11 +168,13 @@ qboolean SNDDMA_Init( void ) {
 	}
 
 	dmapos = 0;
-	dma.samplebits = 16;  // first byte of format is bits.
+	dma.samplebits = 16;
 	dma.channels = 2;
-	dma.samples = 1024*32;
+	dma.samples = 1024*16;
 	dma.submission_chunk = 1024*2;
+	//dma.submission_chunk = 1;
 	dma.speed = 44100;
+	dma.speed = 22050;
 	dmasize = (dma.samples * (dma.samplebits/8));
 	dma.buffer = calloc(1, dmasize);
 
@@ -197,7 +204,7 @@ qboolean SNDDMA_Init( void ) {
 
 	// configure audio source
 	SLDataLocator_AndroidSimpleBufferQueue loc_bufq = {SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE, 1};
-	SLDataFormat_PCM format_pcm = {SL_DATAFORMAT_PCM, 2, SL_SAMPLINGRATE_44_1,
+	SLDataFormat_PCM format_pcm = {SL_DATAFORMAT_PCM, 2, SL_SAMPLINGRATE_22_05,
 			SL_PCMSAMPLEFORMAT_FIXED_16, SL_PCMSAMPLEFORMAT_FIXED_16,
 			SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT, SL_BYTEORDER_LITTLEENDIAN};
 	SLDataSource audioSrc = {&loc_bufq, &format_pcm};
@@ -254,6 +261,9 @@ int SNDDMA_GetDMAPos( void ) {
 		return 0;
 	}
 
+	pthread_mutex_lock(&dma_mutex);
+
+	//LOGI("SNDDMA_GetDMAPos");
 	return dmapos;
 }
 
@@ -268,7 +278,11 @@ Send sound to device if buffer isn't really the dma buffer
 ===============
  */
 void SNDDMA_Submit( void ) {
+	//LOGI("SNDDMA_Submit");
+	 pthread_mutex_unlock(&dma_mutex);
 }
 
 void SNDDMA_BeginPainting( void ) {
+	//LOGI("SNDDMA_BeginPainting");
+	//pthread_mutex_lock(&dma_mutex);
 }

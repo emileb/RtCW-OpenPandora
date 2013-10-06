@@ -157,7 +157,35 @@ void PortableAction(int state, int action)
 	case PORT_ACT_ZOOM_IN:
 		key = KB_WBUTTONS1;
 		break;
-
+	case PORT_ACT_ALT_FIRE:
+		if (state)
+			postCommand("weapalt\n");
+		break;
+	case PORT_ACT_HELPCOMP:
+		if (state)
+			postCommand("notebook\n");
+		break;
+	case PORT_ACT_INVUSE:
+		key = KB_BUTTONS2;
+		break;
+	case PORT_ACT_INVPREV:
+		if (state)
+			postCommand("itemprev\n");
+		break;
+	case PORT_ACT_INVNEXT:
+		if (state)
+			postCommand("itemnext\n");
+		break;
+	case PORT_ACT_RELOAD:
+		key = KB_WBUTTONS3;
+		break;
+	case PORT_ACT_QUICKSAVE:
+		if (state)
+			postCommand("savegame quicksave\n");
+		break;
+	case PORT_ACT_QUICKLOAD:
+		if (state)
+			postCommand("loadgame quicksave\n");
 		break;
 	}
 

@@ -1609,6 +1609,22 @@ qboolean Item_SetFocus( itemDef_t *item, float x, float y ) {
 	sfxHandle_t *sfx = &DC->Assets.itemFocusSound;
 	qboolean playSound = qfalse;
 	menuDef_t *parent = NULL;
+
+	LOGI("Item_SetFocus %d",item->type);
+
+
+	if ((item->type == ITEM_TYPE_VALIDFILEFIELD) ||
+			(item->type == ITEM_TYPE_NUMERICFIELD) ||
+			(item->type == ITEM_TYPE_EDITFIELD) )
+	{
+		DC->showSoftKeyboard(1);
+	}
+	else
+	{
+		DC->showSoftKeyboard(0);
+	}
+
+
 	// sanity check, non-null, not a decoration and does not already have the focus
 	if ( item == NULL || item->window.flags & WINDOW_DECORATION || item->window.flags & WINDOW_HASFOCUS || !( item->window.flags & WINDOW_VISIBLE ) ) {
 		return qfalse;
@@ -2358,6 +2374,18 @@ qboolean Item_TextField_HandleKey( itemDef_t *item, int key ) {
 					memmove( buff + item->cursorPos, buff + item->cursorPos + 1, len - item->cursorPos );
 					DC->setCVar( item->cvar, buff );
 				}
+				else //added by emile, if at end of line, acts as backspace. Because android keyboard only one del
+				{
+					if ( item->cursorPos > 0 ) {
+						memmove( &buff[item->cursorPos - 1], &buff[item->cursorPos], len + 1 - item->cursorPos );
+						item->cursorPos--;
+						if ( item->cursorPos < editPtr->paintOffset ) {
+							editPtr->paintOffset--;
+						}
+					}
+					DC->setCVar( item->cvar, buff );
+
+				}
 				return qtrue;
 			}
 
@@ -2881,6 +2909,7 @@ void Menu_HandleKey( menuDef_t *menu, int key, qboolean down ) {
 
 	if ( g_editingField && down ) {
 		if ( !Item_TextField_HandleKey( g_editItem, key ) ) {
+			DC->showSoftKeyboard(0);
 			g_editingField = qfalse;
 			g_editItem = NULL;
 			inHandler = qfalse;
@@ -4398,6 +4427,32 @@ void Item_Paint( itemDef_t *item ) {
 	case ITEM_TYPE_NUMERICFIELD:
 	case ITEM_TYPE_VALIDFILEFIELD:      //----(SA)	added
 		Item_TextField_Paint( item );
+
+		if ( item->window.flags & WINDOW_HASFOCUS && g_editingField )
+		{
+
+
+			float tempx = item->textRect.x;
+			float tempy = item->textRect.y;
+
+			item->textRect.x = 200;
+			item->textRect.y = 125;
+
+			float color[4];
+			color[0] = 0;
+			color[1] = 0;
+			color[2] = 0;
+			color[3] = 1;
+			DC->fillRect(item->textRect.x - 10,item->textRect.y - 20,300,25,color);
+			color[0] = 1;
+			DC->drawRect(item->textRect.x - 10,item->textRect.y - 20,300,25,1,color);
+
+			Item_TextField_Paint( item );
+
+			item->textRect.x = tempx;
+			item->textRect.y = tempy;
+
+		}
 		break;
 	case ITEM_TYPE_COMBO:
 		break;
@@ -4557,6 +4612,117 @@ void Menu_HandleMouseMove( menuDef_t *menu, float x, float y ) {
 
 	if ( g_waitingForKey || g_editingField ) {
 		return;
+	}
+
+	LOGI("Menu_HandleMouseMove %f %f",x,y);
+
+	//Find the closest item
+	float closestDist = 99999999;
+	itemDef_t *closestItem = NULL;
+	for ( i = 0; i < menu->itemCount; i++ ) {
+
+		if ( !( menu->items[i]->window.flags & ( WINDOW_VISIBLE | WINDOW_FORCED ) ) ) {
+			continue;
+		}
+
+		// items can be enabled and disabled based on cvars
+		if ( menu->items[i]->cvarFlags & ( CVAR_ENABLE | CVAR_DISABLE ) && !Item_EnableShowViaCvar( menu->items[i], CVAR_ENABLE ) ) {
+			continue;
+		}
+
+		if ( menu->items[i]->cvarFlags & ( CVAR_SHOW | CVAR_HIDE ) && !Item_EnableShowViaCvar( menu->items[i], CVAR_SHOW ) ) {
+			continue;
+		}
+
+		if ( !IsVisible(  menu->items[i]->window.flags ) )
+			continue;
+
+		if ( ( menu->items[i]->window.flags & WINDOW_DECORATION))
+			continue;
+
+		itemDef_t *item =  menu->items[i];
+
+		float dist;
+
+		if ( Rect_ContainsPoint(&item->window.rect,x,y))
+		{
+			//Is inside to def the closest
+			dist = 0;
+		}
+		else
+		{
+			//find the shortest distance to the item
+			//This looks complicated as its looking for the shortest distance to any edge/corner
+			float tdist;
+
+			//Top/Bottom edge
+			if ((x >= item->window.rect.x) && (x < item->window.rect.x + item->window.rect.w))
+			{
+				//LOGI("TB");
+
+				if (y < item->window.rect.y)
+				{
+					dist =   abs (y - (item->window.rect.y));
+				}
+				else
+				{
+					dist = abs (y - (item->window.rect.y + item->window.rect.h));
+				}
+			} //Left/Right edge
+			else if ((y >= item->window.rect.y) && (y < item->window.rect.y + item->window.rect.h))
+			{
+				//LOGI("LR");
+
+				if (x < item->window.rect.x)
+				{
+					dist =   abs (x - (item->window.rect.x));
+				}
+				else
+				{
+					dist = abs (x - (item->window.rect.x + item->window.rect.w));
+				}
+			}//Corners
+			else
+			{
+				float cx,cy;
+				if (x < item->window.rect.x)
+					cx = item->window.rect.x;
+				else
+					cx = item->window.rect.x + item->window.rect.w;
+
+
+				if (y < item->window.rect.y)
+					cy = item->window.rect.y;
+				else
+					cy = item->window.rect.y + item->window.rect.h;
+
+				//LOGI("CORNER %f %f",cx,cy);
+
+				dist =  sqrt((abs(x-cx) * abs(x-cx) + abs(y-cy) * abs(y-cy)));
+
+			}
+		}
+
+		if (dist < closestDist)
+		{
+			closestDist = dist;
+			closestItem = item;
+		}
+
+		//LOGI("clostest %f   %f",dist,closestDist);
+	}
+
+	if (closestItem)
+	{
+		if ((closestDist != 0) && (closestDist < 20))
+		{
+			//Now move pointer to nearest item
+			x = closestItem->window.rect.x + closestItem->window.rect.w/2;
+			y = closestItem->window.rect.y + closestItem->window.rect.h/2;
+			//Is this safe?? Seems to work
+			DC->cursorx = x;
+			DC->cursory = y;
+		}
 	}
 
 	// FIXME: this is the whole issue of focus vs. mouse over..

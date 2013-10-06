@@ -404,6 +404,8 @@ typedef struct {
 	void ( *drawCinematic )( int handle, float x, float y, float w, float h );
 	void ( *runCinematicFrame )( int handle );
 
+	void ( *showSoftKeyboard )( int val );
+
 	float yscale;
 	float xscale;
 	float bias;

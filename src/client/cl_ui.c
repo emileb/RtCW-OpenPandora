@@ -783,6 +783,9 @@ void *VM_ArgPtr( int intValue );
 #define VMA( x ) VM_ArgPtr( args[x] )
 #define VMF( x )  ( (float *)args )[x]
 
+
+extern void showKeyboard(int val);
+
 /*
 ====================
 CL_UISystemCalls
@@ -1159,7 +1162,11 @@ int CL_UISystemCalls( int *args ) {
 	case UI_CL_GETLIMBOSTRING:
 		return CL_GetLimboString( args[1], VMA( 2 ) );
 		// -NERVE - SMF
+	case UI_CIN_SHOWSOFTKEYBOARD:
 
+
+		showKeyboard(args[1]);
+		return;
 	default:
 		Com_Error( ERR_DROP, "Bad UI system trap: %i", args[0] );
 
