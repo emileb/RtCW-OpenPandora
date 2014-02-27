@@ -554,6 +554,12 @@ void GLimp_Init( void ) {
 
 	ri.Cvar_Set( "r_lastValidRenderer", glConfig.renderer_string );
 
+	//TEST!!!
+	//ri.Cvar_Set( "r_picmip", "0" );
+	//ri.Cvar_Set( "r_texturemode", "GL_LINEAR_MIPMAP_LINEAR" );
+	//!!!!
+
+
 	// initialize extensions
 	GLW_InitExtensions();
 	GLW_InitGamma();

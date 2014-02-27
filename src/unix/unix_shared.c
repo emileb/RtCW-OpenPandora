@@ -335,6 +335,7 @@ char *Sys_DefaultHomePath( void ) {
 		return homePath;
 	}
 
+#ifndef __ANDROID__
 	if ( ( p = getenv( "HOME" ) ) != NULL ) {
 		Q_strncpyz( homePath, p, sizeof( homePath ) );
 // NOTE TTimo: this still used in OSX build?
@@ -355,6 +356,8 @@ char *Sys_DefaultHomePath( void ) {
 		}
 		return homePath;
 	}
+#endif
+
 	return ""; // assume current dir
 }
 

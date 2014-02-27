@@ -1163,8 +1163,6 @@ int CL_UISystemCalls( int *args ) {
 		return CL_GetLimboString( args[1], VMA( 2 ) );
 		// -NERVE - SMF
 	case UI_CIN_SHOWSOFTKEYBOARD:
-
-
 		showKeyboard(args[1]);
 		return;
 	default:

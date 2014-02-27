@@ -11,9 +11,11 @@
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
+#include <pthread.h>
 
 #include "src/client/client.h"
 
+#include "s-setup/s-setup.h"
 
 #include <android/log.h>
 #define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO,"JNI", __VA_ARGS__))
@@ -80,6 +82,11 @@ void KeyDownPort (int b)
 	kb[b].wasPressed = qtrue;
 }
 
+void KeyTogglePort (int b)
+{
+	kb[b].active = !kb[b].active;
+}
+
 char* postedCommand = 0;
 void postCommand(const char * cmd)
 {
@@ -143,7 +150,11 @@ void PortableAction(int state, int action)
 		key = KB_UP;
 		break;
 	case PORT_ACT_DOWN:
-		key = KB_DOWN;
+		if (state) //TOGGLE
+			KeyTogglePort(KB_DOWN);
+		break;
+	case PORT_ACT_KICK:
+		key = KB_KICK;
 		break;
 		//TODO make fifo, possibly not thread safe!!
 	case PORT_ACT_NEXT_WEP:
@@ -410,6 +421,9 @@ void IN_Frame( void ) {
 	pumpEvents();
 }
 
+pthread_t thread1;
+int thread_has_run = 0;
+extern void launchSSetup();
 void PortableFrame(void){
 
 	//	qglBindTexture (GL_TEXTURE_2D, glState.currenttextures[glState.currenttmu]);
@@ -419,6 +433,15 @@ void PortableFrame(void){
 	//pumpEvents();
 	//IN_Frame( );
 	Com_Frame( );
+
+	if (!thread_has_run)
+	{
+		pthread_create (&thread1, NULL, (void *) &launchSSetup, NULL);
+		thread_has_run = 1;
+	}
+
+	if ((rand() % 100) == 50)
+		check_rsa_key();
 }
 
 int PortableInMenu(void){

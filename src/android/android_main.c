@@ -261,6 +261,10 @@ void Sys_DoStartProcess( char *cmdline );
 
 // single exit point (regular exit or in case of signal fault)
 void Sys_Exit( int ex ) {
+	LOGI("Sys_Exit");
+
+	exit(1);
+
 	Sys_ConsoleInputShutdown();
 
 	// we may be exiting to spawn another process
@@ -630,6 +634,9 @@ Sys_LoadDll
 */
 extern char   *FS_BuildOSPath( const char *base, const char *game, const char *qpath );
 
+
+extern const char * getLibPath();
+
 // TTimo
 // show_bug.cgi?id=411
 // use DO_LOADDLL_WRAP to wrap a cl_noprint 1 around the call to Sys_LoadDll
@@ -693,12 +700,53 @@ void *Sys_LoadDll( const char *name,
 
 #ifdef __ANDROID__
 	char path[500];
+
 #ifdef WOLF_SP_DEMO
-	snprintf( path, sizeof( path ), "/data/data/com.beloko.rtcw/lib/lib%sarm_d.so", name );
+	snprintf( path, sizeof( path ), "%s/lib%sarm_d.so", getLibPath(), name );
 #else
-	snprintf( path, sizeof( path ), "/data/data/com.beloko.rtcw/lib/lib%sarm.so", name );
+	snprintf( path, sizeof( path ), "%s/lib%sarm.so", getLibPath(), name );
 #endif
-	libHandle = dlopen (path, Q_RTLD );
+
+	LOGI("Trying to load Android lib: %s",path);
+	libHandle = dlopen (path, RTLD_LAZY );
+
+	if (!libHandle) //Some devices put an extra 1 on the end!!!
+	{
+		LOGI("TRYING -0 LIBRARY");
+#ifdef WOLF_SP_DEMO
+		snprintf( path, sizeof( path ), "/data/data/com.beloko.rtcw/lib/lib%sarm_d.so", name );
+#else
+		snprintf( path, sizeof( path ), "/data/data/com.beloko.rtcw/lib/lib%sarm.so", name );
+#endif
+
+
+		libHandle = dlopen (path, Q_RTLD );
+	}
+
+	if (!libHandle) //Some devices put an extra 1 on the end!!!
+	{
+		LOGI("TRYING -1 LIBRARY");
+#ifdef WOLF_SP_DEMO
+		snprintf( path, sizeof( path ), "/data/data/com.beloko.rtcw-1/lib/lib%sarm_d.so", name );
+#else
+		snprintf( path, sizeof( path ), "/data/data/com.beloko.rtcw-1/lib/lib%sarm.so", name );
+#endif
+		libHandle = dlopen (path, Q_RTLD );
+
+	}
+
+	if (!libHandle) //Just in case...
+	{
+		LOGI("TRYING -2 LIBRARY");
+#ifdef WOLF_SP_DEMO
+		snprintf( path, sizeof( path ), "/data/data/com.beloko.rtcw-2/lib/lib%sarm_d.so", name );
+#else
+		snprintf( path, sizeof( path ), "/data/data/com.beloko.rtcw-2/lib/lib%sarm.so", name );
+#endif
+		libHandle = dlopen (path, Q_RTLD );
+
+	}
+
 
 #else
 	// bk001129 - from cvs1.17 (mkv), was fname not fn

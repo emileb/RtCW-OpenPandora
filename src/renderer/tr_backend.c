@@ -339,6 +339,7 @@ void GL_State( unsigned long stateBits ) {
 		{
 		case 0:
 			qglDisable( GL_ALPHA_TEST );
+			qglAlphaFunc( GL_GREATER, 0.0f );
 			break;
 		case GLS_ATEST_GT_0:
 			qglEnable( GL_ALPHA_TEST );
@@ -1630,6 +1631,7 @@ const void  *RB_SwapBuffers( const void *data ) {
 
 	if ( !glState.finishCalled ) 
 	{
+		//LOGI("GLFINISH");
 		qglFinish();
 	}
 

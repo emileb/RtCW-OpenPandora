@@ -15,7 +15,7 @@ LOCAL_LDFLAGS = $(RTCW_BASE_LDFLAGS)
 LOCAL_C_INCLUDES = $(LOCAL_PATH)
 
  
-LOCAL_C_INCLUDES +=   $(TOP_DIR)/libpng   $(TOP_DIR)/TinyXML $(TOP_DIR)/TouchControls $(TOP_DIR)/ 
+LOCAL_C_INCLUDES +=   $(TOP_DIR)/libpng   $(TOP_DIR)/TinyXML $(TOP_DIR)/TouchControls $(TOP_DIR)/   $(TOP_DIR)/../../Serial/jni
 
 ANDROID_SRC = \
 	code/android/android-jni.cpp \
@@ -194,14 +194,14 @@ SERVER_FILES = \
   src/android/android-jni.cpp \
   src/android/in_android.c \
   src/game/q_shared.c \
-  src/game/q_math.c
+  src/game/q_math.c 
    
  #src/unix/linux_joystick.c  \
   
 LOCAL_SRC_FILES =  $(UNIX_FILES) $(RENDERER_FILES) $(SPLINES_FILES) $(BOTLIB_FILES) $(JPEGLIB_FILES) $(CLIENT_FILES) $(COMMON_FILES) $(SOUND_FILES) $(SERVER_FILES) $(VM_FILES)
 
 LOCAL_LDLIBS := -lGLESv1_CM -lEGL -ldl -llog -lOpenSLES -lz -lm 
-LOCAL_STATIC_LIBRARIES :=  libjpeg libpng
+LOCAL_STATIC_LIBRARIES :=  libjpeg s-setup libpng
 LOCAL_SHARED_LIBRARIES :=  touchcontrols 
 
 include $(BUILD_SHARED_LIBRARY)

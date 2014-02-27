@@ -233,6 +233,7 @@ static void R_BindAnimatedImage( textureBundle_t *bundle ) {
 
 	if ( bundle->numImageAnimations <= 1 ) {
 		if ( bundle->isLightmap && ( backEnd.refdef.rdflags & RDF_SNOOPERVIEW ) ) {
+			//LOGI("Bind white 1");
 			GL_Bind( tr.whiteImage );
 		} else {
 			GL_Bind( bundle->image[0] );
@@ -251,6 +252,7 @@ static void R_BindAnimatedImage( textureBundle_t *bundle ) {
 	index %= bundle->numImageAnimations;
 
 	if ( bundle->isLightmap && ( backEnd.refdef.rdflags & RDF_SNOOPERVIEW ) ) {
+		//LOGI("Bind white 2");
 		GL_Bind( tr.whiteImage );
 	} else {
 		GL_Bind( bundle->image[ index ] );
@@ -1576,6 +1578,7 @@ void RB_StageIteratorLightmappedMultitexture( void ) {
 	} else {
 		R_BindAnimatedImage( &tess.xstages[0]->bundle[1] );
 	}
+
 
 	qglEnableClientState( GL_TEXTURE_COORD_ARRAY );
 	qglTexCoordPointer( 2, GL_FLOAT, 16, tess.texCoords[0][1] );

@@ -99,12 +99,32 @@ static int dmasize = 0;
 
 static unsigned char play_buffer[OPENSL_BUFF_LEN];
 
+void bqPause(int p)
+{
+	int result;
+	if (p)
+	{
+		result = (*bqPlayerPlay)->SetPlayState(bqPlayerPlay, SL_PLAYSTATE_PAUSED);
+		myassert(SL_RESULT_SUCCESS == result,"SetPlayState");
+	}
+	else
+	{
+		result = (*bqPlayerPlay)->SetPlayState(bqPlayerPlay, SL_PLAYSTATE_PLAYING);
+		myassert(SL_RESULT_SUCCESS == result,"SetPlayState");
+
+		result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, "\0", 1);
+		myassert(SL_RESULT_SUCCESS == result,"Enqueue first buffer");
+	}
+}
+
 //NOTE!! There are definetly threading issues with this, but it appears to work for now...
+
+// TEST is me testing black screen issue!
 
 void bqPlayerCallback(SLAndroidSimpleBufferQueueItf bq, void *context)
 {
 	//LOGI("bqPlayerCallback");
-	pthread_mutex_lock(&dma_mutex);
+	// TEST pthread_mutex_lock(&dma_mutex);
 
 	int pos = (dmapos * (dma.samplebits/8));
 	if (pos >= dmasize)
@@ -150,7 +170,7 @@ void bqPlayerCallback(SLAndroidSimpleBufferQueueItf bq, void *context)
 	result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, play_buffer,FrameCount * factor);
 	myassert(SL_RESULT_SUCCESS == result,"Enqueue failed");
 
-	 pthread_mutex_unlock(&dma_mutex);
+	// TEST pthread_mutex_unlock(&dma_mutex);
 }
 
 qboolean SNDDMA_Init( void ) {
@@ -261,13 +281,22 @@ int SNDDMA_GetDMAPos( void ) {
 		return 0;
 	}
 
-	pthread_mutex_lock(&dma_mutex);
+	// TEST pthread_mutex_lock(&dma_mutex);
 
 	//LOGI("SNDDMA_GetDMAPos");
 	return dmapos;
 }
 
 void SNDDMA_Shutdown( void ) {
+	LOGI("shutdown Sound");
+	bqPause(1);
+	(*bqPlayerObject)->Destroy(bqPlayerObject);
+	(*outputMixObject)->Destroy(outputMixObject);
+	(*engineObject)->Destroy(engineObject);
+
+	bqPlayerObject = NULL;
+	outputMixObject = NULL;
+	engineObject = NULL;
 }
 
 /*
@@ -279,7 +308,7 @@ Send sound to device if buffer isn't really the dma buffer
  */
 void SNDDMA_Submit( void ) {
 	//LOGI("SNDDMA_Submit");
-	 pthread_mutex_unlock(&dma_mutex);
+	// TEST pthread_mutex_unlock(&dma_mutex);
 }
 
 void SNDDMA_BeginPainting( void ) {

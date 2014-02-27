@@ -891,6 +891,7 @@ static int CG_CalcFov( void ) {
 		cg.refdef.rdflags &= ~RDF_SNOOPERVIEW;
 	}
 
+
 	if ( cg.snap->ps.persistant[PERS_HWEAPON_USE] ) {
 		fov_x = 55;
 	}

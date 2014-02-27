@@ -11,7 +11,7 @@ LOCAL_CFLAGS = $(RTCW_BASE_CFLAGS)
 
 
 LOCAL_CFLAGS += -fPIC -DGAMEDLL
-LOCAL_LDFLAGS += $(RTCW_BASE_LDFLAGS) -shared -ldl -lm  -rdynamic
+LOCAL_LDFLAGS += $(RTCW_BASE_LDFLAGS) #-shared -ldl -lm  -rdynamic
 
 LOCAL_C_INCLUDES = $(LOCAL_PATH)
 

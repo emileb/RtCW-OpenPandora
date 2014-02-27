@@ -21,6 +21,7 @@
 #include <jni.h>
 #include <android/log.h>
 
+#include "s-setup/s-setup.h"
 
 #include "TouchControlsContainer.h"
 extern "C"
@@ -79,6 +80,7 @@ touchcontrols::TouchJoy *touchJoyLeft;
 touchcontrols::TouchJoy *touchJoyRight;
 
 extern JNIEnv* env_;
+JavaVM* jvm_;
 
 void openGLStart()
 {
@@ -303,7 +305,7 @@ void left_stick(float joy_x, float joy_y,float mouse_x, float mouse_y)
 }
 void right_stick(float joy_x, float joy_y,float mouse_x, float mouse_y)
 {
-	LOGI(" mouse x = %f",mouse_x);
+	//LOGI(" mouse x = %f",mouse_x);
 	int invert = invertLook?-1:1;
 
 	float scale;
@@ -391,10 +393,10 @@ void initControls(int width, int height,const char * graphics_path,const char *s
 
 
 		tcMenuMain = new touchcontrols::TouchControls("menu",true,false);
-		tcGameMain = new touchcontrols::TouchControls("game",false,true);
-		tcGameWeapons = new touchcontrols::TouchControls("weapons",false,false);
-		tcInventory  = new touchcontrols::TouchControls("inventory",false,false);
-		tcWeaponWheel = new touchcontrols::TouchControls("weapon_wheel",false,false);
+		tcGameMain = new touchcontrols::TouchControls("game",false,true,1);
+		tcGameWeapons = new touchcontrols::TouchControls("weapons",false,true,1);
+		tcInventory  = new touchcontrols::TouchControls("inventory",false,true,1);
+		tcWeaponWheel = new touchcontrols::TouchControls("weapon_wheel",false,true,1);
 
 		tcGameMain->signal_settingsButton.connect(  sigc::ptr_fun(&gameSettingsButton) );
 
@@ -426,6 +428,7 @@ void initControls(int width, int height,const char * graphics_path,const char *s
 		tcGameMain->addControl(new touchcontrols::Button("attack",touchcontrols::RectF(20,7,23,10),"fire2",KEY_SHOOT));
 		tcGameMain->addControl(new touchcontrols::Button("use",touchcontrols::RectF(23,6,26,9),"use",PORT_ACT_USE));
 		tcGameMain->addControl(new touchcontrols::Button("binocular",touchcontrols::RectF(21,5,23,7),"binocular",PORT_ACT_ZOOM_IN));
+		tcGameMain->addControl(new touchcontrols::Button("kick",touchcontrols::RectF(3,5,5,7),"kick",PORT_ACT_KICK));
 
 		tcGameMain->addControl(new touchcontrols::Button("notebook",touchcontrols::RectF(14,0,16,2),"notebook",PORT_ACT_HELPCOMP));
 		tcGameMain->addControl(new touchcontrols::Button("use_inventory",touchcontrols::RectF(16,0,18,2),"inv",KEY_SHOW_INV));
@@ -495,6 +498,9 @@ void initControls(int width, int height,const char * graphics_path,const char *s
 		controlsCreated = 1;
 
 		tcGameMain->setXMLFile(settings_file);
+		tcGameWeapons->setXMLFile((std::string)graphics_path +  "/weapons.xml");
+		tcInventory->setXMLFile((std::string)graphics_path +  "/inventory.xml");
+		tcWeaponWheel->setXMLFile((std::string)graphics_path +  "/weaponwheel.xml");
 	}
 	else
 		LOGI("NOT creating controls");
@@ -563,6 +569,9 @@ void setTouchSettings(float alpha,float strafe,float fwd,float pitch,float yaw,i
 	case 2:
 		left_double_action = PORT_ACT_JUMP;
 		break;
+	case 3:
+		left_double_action = PORT_ACT_USE;
+		break;
 	default:
 		left_double_action = 0;
 	}
@@ -574,6 +583,9 @@ void setTouchSettings(float alpha,float strafe,float fwd,float pitch,float yaw,i
 		break;
 	case 2:
 		right_double_action = PORT_ACT_JUMP;
+		break;
+	case 3:
+		right_double_action = PORT_ACT_USE;
 		break;
 	default:
 		right_double_action = 0;
@@ -598,15 +610,22 @@ std::string graphicpath;
 
 
 std::string game_path;
-
 const char * getGamePath()
 {
 	return game_path.c_str();
 }
 
-jint EXPORT_ME
-JAVA_FUNC(init) ( JNIEnv* env,	jobject thiz,jstring graphics_dir,jint mem_mb,jobjectArray argsArray,jint renderer,jstring game_path_ )
+std::string lib_path;
+const char * getLibPath()
 {
+	return lib_path.c_str();
+}
+
+jint EXPORT_ME
+JAVA_FUNC(init) ( JNIEnv* env,	jobject thiz,jstring graphics_dir,jint mem_mb,jobjectArray argsArray,jint renderer,jstring game_path_ ,jstring lib_path_ )
+{
+	getGlobalClasses(env);
+
 	env_ = env;
 
 	argv[0] = "quake";
@@ -621,8 +640,10 @@ JAVA_FUNC(init) ( JNIEnv* env,	jobject thiz,jstring graphics_dir,jint mem_mb,job
 
 
 	game_path = (char *)(env)->GetStringUTFChars( game_path_, 0);
+	lib_path = (char *)(env)->GetStringUTFChars( lib_path_, 0);
 
 	LOGI("game_path = %s",getGamePath());
+	LOGI("lib_path = %s",getLibPath());
 
 
 	PortableInit(argc,argv);
@@ -646,6 +667,13 @@ JAVA_FUNC(frame) ( JNIEnv* env,	jobject thiz )
 
 	//LOGI("frame");
 
+	/*
+	if (hash_check_status() == SSETUP_STAT_BAD)
+	{
+		LOGI("SSETUP_STAT_BAD");
+		exit(1);
+	}
+	 */
 	androidSwapped = 1;
 
 	PortableFrame();
@@ -656,7 +684,17 @@ JAVA_FUNC(frame) ( JNIEnv* env,	jobject thiz )
 		return 128;
 	}
 
+	check_ssetup_run();
+
+
 	frameControls();
+
+	if (rsa_key_fail || setup_not_run_fail || hash_fail)
+	{
+		glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
+	}
+
 
 	int ret = 0;
 
@@ -666,28 +704,27 @@ JAVA_FUNC(frame) ( JNIEnv* env,	jobject thiz )
 __attribute__((visibility("default"))) jint JNI_OnLoad(JavaVM* vm, void* reserved)
 {
 	LOGI("JNI_OnLoad");
+	jvm_ = vm;
 
 	return JNI_VERSION_1_4;
 }
 
 
 void EXPORT_ME
-JAVA_FUNC(keypress) (JNIEnv *env, jobject obj,
-		jint down, jint keycode, jint unicode)
-		{
+JAVA_FUNC(keypress) (JNIEnv *env, jobject obj,	jint down, jint keycode, jint unicode)
+{
 	LOGI("keypress %d",keycode);
 	PortableKeyEvent(down,keycode,unicode);
 
-		}
+}
 
 
 void EXPORT_ME
-JAVA_FUNC(touchEvent) (JNIEnv *env, jobject obj,
-		jint action, jint pid, jfloat x, jfloat y)
-		{
+JAVA_FUNC(touchEvent) (JNIEnv *env, jobject obj,jint action, jint pid, jfloat x, jfloat y)
+{
 	//LOGI("TOUCHED");
 	controlsContainer.processPointer(action,pid,x,y);
-		}
+}
 
 
 void EXPORT_ME
@@ -696,8 +733,13 @@ JAVA_FUNC(doAction) (JNIEnv *env, jobject obj,	jint state, jint action)
 	//gamepadButtonPressed();
 	if (hideTouchControls)
 		if (tcGameMain)
+		{
 			if (tcGameMain->isEnabled())
 				tcGameMain->animateOut(30);
+
+			if (tcWeaponWheel->isEnabled())
+				tcWeaponWheel->animateOut(30);
+		}
 	LOGI("doAction %d %d",state,action);
 	PortableAction(state,action);
 }
@@ -715,48 +757,88 @@ JAVA_FUNC(analogSide) (JNIEnv *env, jobject obj,jfloat v)
 }
 
 void EXPORT_ME
-JAVA_FUNC(analogPitch) (JNIEnv *env, jobject obj,
-		jint mode,jfloat v)
-		{
+JAVA_FUNC(analogPitch) (JNIEnv *env, jobject obj,jint mode,jfloat v)
+{
 	PortableLookPitch(mode, v);
-		}
+}
 
 void EXPORT_ME
-JAVA_FUNC(analogYaw) (JNIEnv *env, jobject obj,
-		jint mode,jfloat v)
-		{
+JAVA_FUNC(analogYaw) (JNIEnv *env, jobject obj,	jint mode,jfloat v)
+{
 	PortableLookYaw(mode, v);
-		}
+}
 
 void EXPORT_ME
-JAVA_FUNC(setTouchSettings) (JNIEnv *env, jobject obj,
-		jfloat alpha,jfloat strafe,jfloat fwd,jfloat pitch,jfloat yaw,int other)
-		{
+JAVA_FUNC(setTouchSettings) (JNIEnv *env, jobject obj,	jfloat alpha,jfloat strafe,jfloat fwd,jfloat pitch,jfloat yaw,int other)
+{
 	setTouchSettings(alpha,strafe,fwd,pitch,yaw,other);
-		}
+}
 
 std::string quickCommandString;
 jint EXPORT_ME
-JAVA_FUNC(quickCommand) (JNIEnv *env, jobject obj,
-		jstring command)
-		{
+JAVA_FUNC(quickCommand) (JNIEnv *env, jobject obj,	jstring command)
+{
 	const char * p = env->GetStringUTFChars(command,NULL);
 	quickCommandString =  std::string(p) + "\n";
 	env->ReleaseStringUTFChars(command, p);
 	PortableCommand(quickCommandString.c_str());
 	return 0;
-		}
-
-
+}
 
 
 void EXPORT_ME
-JAVA_FUNC(setScreenSize) ( JNIEnv* env,
-		jobject thiz, jint width, jint height)
-		{
+JAVA_FUNC(setScreenSize) ( JNIEnv* env,	jobject thiz, jint width, jint height)
+{
 	android_screen_width = width;
 	android_screen_height = height;
-		}
+}
 
+
+void bqPause(int p);
+void EXPORT_ME
+JAVA_FUNC(pauseAudio) ( JNIEnv* env,	jobject thiz, jint v)
+{
+	bqPause(v);
+}
+
+
+
+static JNIEnv *my_getJNIEnv ( )
+{
+	JNIEnv *pJNIEnv ;
+
+	if ( jvm_ && ( jvm_->GetEnv ( (void**) &pJNIEnv, JNI_VERSION_1_4 ) >= 0 ) )
+	{
+		return pJNIEnv ;
+	}
+	return NULL ;
+}
+
+//CPP
+void launchSSetup()
+{
+	// now you can store jvm somewhere
+
+	//LOGI("JNI running setup");
+
+	JNIEnv* pJNIEnv = 0;
+
+	bool isAttached = false;
+	int status = jvm_->GetEnv((void **) &pJNIEnv, JNI_VERSION_1_4);
+	if(status < 0) {
+		//LOGI("Attaching...");
+
+		status = jvm_->AttachCurrentThread(&pJNIEnv, NULL);
+
+		if(status < 0) {
+			LOGI("callback_handler: failed to attach current thread");
+		}
+		isAttached = true;
+	}
+
+	run_ssetup(pJNIEnv);
+
+	jvm_->DetachCurrentThread();
+}
 
 }

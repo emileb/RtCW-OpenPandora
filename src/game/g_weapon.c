@@ -933,7 +933,7 @@ void Bullet_Fire( gentity_t *ent, float spread, int damage ) {
 		if (!(traceEnt->r.svFlags& SVF_CASTAI))
 		{
 			VectorCopy( g_autoAimEntity->r.currentOrigin, end );
-
+/*
 			//Draw box arond current target
 			if (g_autoAimEntity)
 			{
@@ -947,6 +947,7 @@ void Bullet_Fire( gentity_t *ent, float spread, int damage ) {
 				VectorCopy( b2, bboxEnt->s.origin2 );
 				bboxEnt->s.dmgFlags = 1;    // ("type")
 			}
+*/
 		}
 		//reset this, will get set again if sucessful shot
 		g_autoAimEntity = NULL;
